@@ -1,18 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-  <title>REPL adventures</title>
+  <title>Things I Learned</title>
   <link href="https://github.com/borkdude/quickblog/atom.xml" rel="self"/>
   <link href="https://github.com/borkdude/quickblog"/>
-  <updated>2026-02-27T22:49:34+00:00</updated>
+  <updated>2026-02-28T20:50:21+00:00</updated>
   <id>https://github.com/borkdude/quickblog</id>
   <author>
     <name>Quick Blogger</name>
   </author>
   <entry>
-    <id>https://github.com/borkdude/quickblog/test.html</id>
-    <link href="https://github.com/borkdude/quickblog/test.html"/>
-    <title>Test</title>
-    <updated>2026-02-27T23:59:59+00:00</updated>
-    <content type="html"><![CDATA[<div><p>Write a blog post here!</p></div>]]></content>
+    <id>https://github.com/borkdude/quickblog/lists-in-web-components.html</id>
+    <link href="https://github.com/borkdude/quickblog/lists-in-web-components.html"/>
+    <title>Lists in Web Components</title>
+    <updated>2026-02-28T23:59:59+00:00</updated>
+    <content type="html"><![CDATA[<div><p>Suppose you have some UI in a website that should render a list of items. Let&apos;s call it <code>FancyList</code>. Usage locations of <code>FancyList</code> provide the list of items, each with a <code>label</code>, and, crucially, any other content that is rendered however the usage location requires.</p><p>In UI libraries like React and Svelte, components allow customized rendering using callback functions or slots. In React this might look like:</p><p class="codepen" data-height="300" data-pen-title="Untitled" data-default-tab="html,result" data-slug-hash="OPRVBrG" data-user="tomconnors" style="height: 300px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;">
+  <span>See the Pen <a href="https://codepen.io/tomconnors/pen/OPRVBrG">
+  Untitled</a> by tom connors (<a href="https://codepen.io/tomconnors">@tomconnors</a>)
+  on <a href="https://codepen.io">CodePen</a>.</span>
+</p>
+<script async src="https://public.codepenassets.com/embed/index.js"></script><p>In Svelte we use snippets but the concept is pretty much the same; the caller defines how items are rendered and the <code>FancyList</code> calls that logic.</p><p>We don&apos;t have a similarly convenient option for rendering child element lists when using web components. You can&apos;t pass a function to a web component with just HTML:</p><pre><code class="language-html">&lt;!-- This doesn&apos;t solve our problem --&gt;
+&lt;fancy-list items=&quot;[...]&quot;&gt;&lt;/fancy-list&gt;
+</code></pre><p>The best option I&apos;ve found is conceptually pretty simple: instead of passing the items as an attribute of the web component, pass them as children. Structure the children so that the web component can easily pull out the information it needs, and include any customized rendering directly in the DOM.</p><p class="codepen" data-height="300" data-pen-title="Untitled" data-default-tab="html,result" data-slug-hash="ZYpGmYe" data-user="tomconnors" style="height: 300px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;">
+  <span>See the Pen <a href="https://codepen.io/tomconnors/pen/ZYpGmYe">
+  Untitled</a> by tom connors (<a href="https://codepen.io/tomconnors">@tomconnors</a>)
+  on <a href="https://codepen.io">CodePen</a>.</span>
+</p>
+<script async src="https://public.codepenassets.com/embed/index.js"></script><p>There are some important things to note:</p><ul><li>We read the DOM the caller provided in <code>parseLightDom</code>. You can imagine more complex versions of this function for more complex situations.</li><li>We use a mutation observer to keep track of the children provided by the caller so we can rerender if the items change.</li><li>Instead of directly putting the elements provided by the caller into the WC&apos;s shadow DOM, we clone them. This works in more situations than just using innerHTML.</li><li>We don&apos;t use <code>&lt;slot&gt;</code> elements because we have a <em>list</em> of items where each can render differently.</li><li>This approach requires more HTML. Your HTML templating should make that manageable and compression should negate any performance concerns.</li></ul></div>]]></content>
   </entry>
 </feed>
