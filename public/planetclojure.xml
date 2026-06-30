@@ -3,11 +3,57 @@
   <title>Things I Learned</title>
   <link href="https://github.com/borkdude/quickblog/atom.xml" rel="self"/>
   <link href="https://github.com/borkdude/quickblog"/>
-  <updated>2026-02-28T20:50:21+00:00</updated>
+  <updated>2026-06-30T02:00:14+00:00</updated>
   <id>https://github.com/borkdude/quickblog</id>
   <author>
     <name>Quick Blogger</name>
   </author>
+  <entry>
+    <id>https://github.com/borkdude/quickblog/pure-reads-pattern.html</id>
+    <link href="https://github.com/borkdude/quickblog/pure-reads-pattern.html"/>
+    <title>A Pattern for Removing Impure Reads from Otherwise Pure Functions</title>
+    <updated>2026-06-29T23:59:59+00:00</updated>
+    <content type="html"><![CDATA[<div><p>Sometimes I find I&apos;ve got a function like this:</p><pre><code class="language-clojure">(defn calculate-something [a]
+  (if (some-test? a)
+    (let [b (read-from-db a)]
+      (some-transform a b))
+    (some-other-transform a)))
+</code></pre><p>Basically, I need to read from the database (or any other impure place) in the middle of the function, after checking whether the read is necessary/possible.</p><p>That function has a signature like <code>[&amp; params] =&gt; result</code>. A quick way to make that function pure is to give it a signature of <code>[memo &amp; params] =&gt; effect</code>, where <code>effect</code> is either <code>[:result some-data]</code> or <code>[:query &amp; query-params]</code>.</p><p>So we&apos;d write the above as:</p><pre><code class="language-clojure">(defn calculate-something [memo a]
+  (let [q [:read-from-db a]
+        a? (some-test? a)]
+    (cond
+      (and a? (contains? memo q))
+      (let [b (get memo q)]
+        [:result (some-transform a b)])
+
+      a? [:query q]
+
+      :else [:result (some-other-transform a)])))
+</code></pre><p>Then in another layer of the app where purity isn&apos;t required, call the function in a loop until it returns a result, and interpret :query forms as needed.</p><pre><code class="language-clojure">(defn get-something! [conn a]
+  (loop [memo nil i 0]
+    (when (&gt; i 10) (throw (ex-info &quot;Too many queries&quot;)))
+    (let [[cmd data] (calculate-something memo a)]
+      (case cmd
+        :result data
+        :query  (let [memo (assoc memo data (execute-query! conn data))]
+                  (recur memo (inc i))))))
+</code></pre><p>You could make this support getting multiple queries to execute per call of the <code>calculate-something</code> function.</p><p><code>execute-query!</code> could be a multimethod or a simple <code>case</code> expression.</p><p>You could also make the impure wrapper agnostic of the pure function it calls:</p><pre><code class="language-clojure">(defn run-with-queries [conn f &amp; params]
+  (loop [memo nil i 0]
+    (when (&gt; i 10) (throw (ex-info &quot;Too many queries&quot;)))
+    (let [[cmd data] (apply f memo params)]
+      (case cmd
+        :result data
+        :query  (let [memo (assoc memo data (execute-query! conn data))]
+                  (recur memo (inc i)))))))
+</code></pre></div>]]></content>
+  </entry>
+  <entry>
+    <id>https://github.com/borkdude/quickblog/clj-opt.html</id>
+    <link href="https://github.com/borkdude/quickblog/clj-opt.html"/>
+    <title>Clojure Optimization Tools and Techniques</title>
+    <updated>2026-05-15T23:59:59+00:00</updated>
+    <content type="html"><![CDATA[<div><p>I intend to add tips about optimizing Clojure programs here as I learn them.</p><h1 id="heap-analysis">Heap Analysis</h1><p>Your Clojure program is using a lot of memory and you don&apos;t know why. Take a heap dump, load it in Eclipse Memory Analyze (MAT), look at the &quot;Leak Suspects&quot;, and start with the biggest.</p></div>]]></content>
+  </entry>
   <entry>
     <id>https://github.com/borkdude/quickblog/lists-in-web-components.html</id>
     <link href="https://github.com/borkdude/quickblog/lists-in-web-components.html"/>

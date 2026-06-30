@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.28.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.28.0/components/prism-clojure.min.js"></script>
-    <script type="text/javascript" src="https://livejs.com/live.js"></script>
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.28.0/themes/prism.min.css">
 
 
@@ -59,6 +59,74 @@
     <div class="wrapper">
 
       
+    <div>
+        <h1><a href="pure-reads-pattern.html">A Pattern for Removing Impure Reads from Otherwise Pure Functions</a></h1>
+        <div><p>Sometimes I find I&apos;ve got a function like this:</p><pre><code class="language-clojure">(defn calculate-something [a]
+  (if (some-test? a)
+    (let [b (read-from-db a)]
+      (some-transform a b))
+    (some-other-transform a)))
+</code></pre><p>Basically, I need to read from the database (or any other impure place) in the middle of the function, after checking whether the read is necessary/possible.</p><p>That function has a signature like <code>[&amp; params] =&gt; result</code>. A quick way to make that function pure is to give it a signature of <code>[memo &amp; params] =&gt; effect</code>, where <code>effect</code> is either <code>[:result some-data]</code> or <code>[:query &amp; query-params]</code>.</p><p>So we&apos;d write the above as:</p><pre><code class="language-clojure">(defn calculate-something [memo a]
+  (let [q [:read-from-db a]
+        a? (some-test? a)]
+    (cond
+      (and a? (contains? memo q))
+      (let [b (get memo q)]
+        [:result (some-transform a b)])
+
+      a? [:query q]
+
+      :else [:result (some-other-transform a)])))
+</code></pre><p>Then in another layer of the app where purity isn&apos;t required, call the function in a loop until it returns a result, and interpret :query forms as needed.</p><pre><code class="language-clojure">(defn get-something! [conn a]
+  (loop [memo nil i 0]
+    (when (&gt; i 10) (throw (ex-info &quot;Too many queries&quot;)))
+    (let [[cmd data] (calculate-something memo a)]
+      (case cmd
+        :result data
+        :query  (let [memo (assoc memo data (execute-query! conn data))]
+                  (recur memo (inc i))))))
+</code></pre><p>You could make this support getting multiple queries to execute per call of the <code>calculate-something</code> function.</p><p><code>execute-query!</code> could be a multimethod or a simple <code>case</code> expression.</p><p>You could also make the impure wrapper agnostic of the pure function it calls:</p><pre><code class="language-clojure">(defn run-with-queries [conn f &amp; params]
+  (loop [memo nil i 0]
+    (when (&gt; i 10) (throw (ex-info &quot;Too many queries&quot;)))
+    (let [[cmd data] (apply f memo params)]
+      (case cmd
+        :result data
+        :query  (let [memo (assoc memo data (execute-query! conn data))]
+                  (recur memo (inc i)))))))
+</code></pre></div>
+        
+        
+        <p><i>Published: 2026-06-29</i></p>
+        
+            <p><i>
+                Tagged:
+                
+                    <span class="tag">
+                        <a href="tags/clojure.html">clojure</a>
+                    </span>
+                
+            </i></p>
+        
+    </div>
+
+    <div>
+        <h1><a href="clj-opt.html">Clojure Optimization Tools and Techniques</a></h1>
+        <div><p>I intend to add tips about optimizing Clojure programs here as I learn them.</p><h1 id="heap-analysis">Heap Analysis</h1><p>Your Clojure program is using a lot of memory and you don&apos;t know why. Take a heap dump, load it in Eclipse Memory Analyze (MAT), look at the &quot;Leak Suspects&quot;, and start with the biggest.</p></div>
+        
+        
+        <p><i>Published: 2026-05-15</i></p>
+        
+            <p><i>
+                Tagged:
+                
+                    <span class="tag">
+                        <a href="tags/clojure.html">clojure</a>
+                    </span>
+                
+            </i></p>
+        
+    </div>
+
     <div>
         <h1><a href="lists-in-web-components.html">Lists in Web Components</a></h1>
         <div><p>Suppose you have some UI in a website that should render a list of items. Let&apos;s call it <code>FancyList</code>. Usage locations of <code>FancyList</code> provide the list of items, each with a <code>label</code>, and, crucially, any other content that is rendered however the usage location requires.</p><p>In UI libraries like React and Svelte, components allow customized rendering using callback functions or slots. In React this might look like:</p><p class="codepen" data-height="300" data-pen-title="Untitled" data-default-tab="html,result" data-slug-hash="OPRVBrG" data-user="tomconnors" style="height: 300px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;">

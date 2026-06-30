@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>A Pattern for Removing Impure Reads from Otherwise Pure Functions</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link type="application/atom+xml" rel="alternate" href="atom.xml" title="A Pattern for Removing Impure Reads from Otherwise Pure Functions">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.28.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.28.0/components/prism-clojure.min.js"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.28.0/themes/prism.min.css">
+
+
+
+    <!-- Social sharing (Facebook, Twitter, LinkedIn, etc.) -->
+    <meta name="title" content="A Pattern for Removing Impure Reads from Otherwise Pure Functions">
+    <meta name="twitter:title" content="A Pattern for Removing Impure Reads from Otherwise Pure Functions">
+    <meta property="og:title" content="A Pattern for Removing Impure Reads from Otherwise Pure Functions">
+    <meta property="og:type" content="website">
+
+
+    <meta name="twitter:url" content="https://github.com/borkdude/quickblog/pure-reads-pattern.html">
+    <meta property="og:url" content="https://github.com/borkdude/quickblog/pure-reads-pattern.html">
+
+
+    <meta name="twitter:card" content="summary">
+
+
+
+  </head>
+  <body>
+
+    <div class="site-header">
+      <div class="wrapper">
+        <div class="site-nav">
+          <a class="page-link" href="archive.html">Archive</a>
+          <a class="page-link" href="tags/index.html">Tags</a>
+          
+	  <a class="page-link" href="atom.xml">
+            Feed
+          </a>
+	  
+	  
+        </div>
+        <div>
+          <h1 class="site-title">
+            <a class="page-link" href="index.html">Things I Learned</a>
+          </h1>
+	  <p>Notes about things I learned</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="wrapper">
+
+      <h1>
+  
+  A Pattern for Removing Impure Reads from Otherwise Pure Functions
+  
+</h1>
+<div><p>Sometimes I find I&apos;ve got a function like this:</p><pre><code class="language-clojure">(defn calculate-something [a]
+  (if (some-test? a)
+    (let [b (read-from-db a)]
+      (some-transform a b))
+    (some-other-transform a)))
+</code></pre><p>Basically, I need to read from the database (or any other impure place) in the middle of the function, after checking whether the read is necessary/possible.</p><p>That function has a signature like <code>[&amp; params] =&gt; result</code>. A quick way to make that function pure is to give it a signature of <code>[memo &amp; params] =&gt; effect</code>, where <code>effect</code> is either <code>[:result some-data]</code> or <code>[:query &amp; query-params]</code>.</p><p>So we&apos;d write the above as:</p><pre><code class="language-clojure">(defn calculate-something [memo a]
+  (let [q [:read-from-db a]
+        a? (some-test? a)]
+    (cond
+      (and a? (contains? memo q))
+      (let [b (get memo q)]
+        [:result (some-transform a b)])
+
+      a? [:query q]
+
+      :else [:result (some-other-transform a)])))
+</code></pre><p>Then in another layer of the app where purity isn&apos;t required, call the function in a loop until it returns a result, and interpret :query forms as needed.</p><pre><code class="language-clojure">(defn get-something! [conn a]
+  (loop [memo nil i 0]
+    (when (&gt; i 10) (throw (ex-info &quot;Too many queries&quot;)))
+    (let [[cmd data] (calculate-something memo a)]
+      (case cmd
+        :result data
+        :query  (let [memo (assoc memo data (execute-query! conn data))]
+                  (recur memo (inc i))))))
+</code></pre><p>You could make this support getting multiple queries to execute per call of the <code>calculate-something</code> function.</p><p><code>execute-query!</code> could be a multimethod or a simple <code>case</code> expression.</p><p>You could also make the impure wrapper agnostic of the pure function it calls:</p><pre><code class="language-clojure">(defn run-with-queries [conn f &amp; params]
+  (loop [memo nil i 0]
+    (when (&gt; i 10) (throw (ex-info &quot;Too many queries&quot;)))
+    (let [[cmd data] (apply f memo params)]
+      (case cmd
+        :result data
+        :query  (let [memo (assoc memo data (execute-query! conn data))]
+                  (recur memo (inc i)))))))
+</code></pre></div>
+
+<p><i>Published: 2026-06-29</i></p>
+
+<p>
+  <i>
+  Tagged:
+  
+  <span class="tag">
+    <a href="tags/clojure.html">clojure</a>
+  </span>
+  
+  </i>
+</p>
+
+
+
+      
+      <div style="margin-bottom: 20px; float: right;">
+        <a class="page-link" href="archive.html">Archive</a>
+      </div>
+      
+    </div>
+  </body>
+</html>
